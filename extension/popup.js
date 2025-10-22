@@ -97,8 +97,10 @@ function autoFillCurrentPage() {
 
 // Open profile manager (the web app)
 function openProfileManager() {
-  // You can replace this URL with your actual deployed web app URL
-  chrome.tabs.create({ url: 'index.html' });
+  // For local development, use localhost
+  // For production, replace with your deployed Lovable app URL (e.g., 'https://yourapp.lovable.app')
+  const webAppUrl = 'http://localhost:8080';
+  chrome.tabs.create({ url: webAppUrl });
   window.close();
 }
 
