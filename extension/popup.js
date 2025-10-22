@@ -97,9 +97,12 @@ function autoFillCurrentPage() {
 
 // Open profile manager (the web app)
 function openProfileManager() {
-  // For local development, use localhost
-  // For production, replace with your deployed Lovable app URL (e.g., 'https://yourapp.lovable.app')
-  const webAppUrl = 'http://localhost:8080';
+  // IMPORTANT: Update this URL based on your setup:
+  // - For local development: 'http://localhost:8080' (requires dev server running)
+  // - For production: Your deployed Lovable app URL (e.g., 'https://yourapp.lovable.app')
+  
+  const webAppUrl = 'http://localhost:8080';  // Change this to your deployed URL
+  
   chrome.tabs.create({ url: webAppUrl });
   window.close();
 }
