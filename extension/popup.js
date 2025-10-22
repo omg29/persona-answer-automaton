@@ -97,9 +97,7 @@ function autoFillCurrentPage() {
 
 // Open profile manager (the web app)
 function openProfileManager() {
-  // For local development, use localhost
-  // For production, replace with your deployed Lovable app URL (e.g., 'https://yourapp.lovable.app')
-  const webAppUrl = 'http://localhost:8080';
+  const webAppUrl = 'https://persona-answer-automaton.lovable.app';
   chrome.tabs.create({ url: webAppUrl });
   window.close();
 }
