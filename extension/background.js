@@ -38,6 +38,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     });
   }
+  
+  if (request.action === 'syncProfiles') {
+    chrome.storage.local.set({ profiles: request.profiles }, () => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
 });
 
 // Listen for keyboard shortcut

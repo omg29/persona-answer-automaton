@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useProfiles } from '@/hooks/useProfiles';
 import { ProfileSelector } from '@/components/ProfileSelector';
 import { ProfileForm } from '@/components/ProfileForm';
@@ -14,6 +15,27 @@ const Index = () => {
     exportProfile,
     importProfile,
   } = useProfiles();
+
+  // Sync profiles with extension
+  useEffect(() => {
+    // Send profiles to Chrome extension if available
+    if (typeof window !== 'undefined' && (window as any).chrome?.runtime?.sendMessage) {
+      try {
+        (window as any).chrome.runtime.sendMessage(
+          { action: 'syncProfiles', profiles },
+          (response: any) => {
+            // Ignore errors if extension is not installed
+            if ((window as any).chrome.runtime.lastError) {
+              console.log('Extension not available');
+            }
+          }
+        );
+      } catch (error) {
+        // Extension not installed or not accessible
+        console.log('Extension sync not available');
+      }
+    }
+  }, [profiles]);
 
   return (
     <div className="min-h-screen bg-background">

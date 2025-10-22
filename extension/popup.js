@@ -143,35 +143,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Manager button
   document.getElementById('managerButton').addEventListener('click', openProfileManager);
   
-  // Try to sync profiles from web app's localStorage
-  // This is a workaround - ideally the web app would communicate with the extension
-  chrome.tabs.query({}, (tabs) => {
-    // Find tab with the profile manager
-    const managerTab = tabs.find(tab => tab.url && (
-      tab.url.includes('localhost') || 
-      tab.url.includes('lovable.app') ||
-      tab.url.includes('index.html')
-    ));
-    
-    if (managerTab) {
-      // Execute script to get profiles from web app localStorage
-      chrome.scripting.executeScript({
-        target: { tabId: managerTab.id },
-        func: () => {
-          const stored = localStorage.getItem('autofill_profiles');
-          return stored ? JSON.parse(stored) : null;
-        }
-      }).then(results => {
-        if (results && results[0] && results[0].result) {
-          const webAppProfiles = results[0].result;
-          // Sync to extension storage
-          chrome.storage.local.set({ profiles: webAppProfiles }, () => {
-            loadProfiles();
-          });
-        }
-      }).catch(err => {
-        console.log('Could not sync from web app:', err);
+  // Listen for profile updates from the web app
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'syncProfiles' && request.profiles) {
+      chrome.storage.local.set({ profiles: request.profiles }, () => {
+        loadProfiles();
+        sendResponse({ success: true });
       });
+      return true;
     }
   });
 });
