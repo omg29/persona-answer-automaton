@@ -18,21 +18,24 @@ const Index = () => {
 
   // Sync profiles with extension
   useEffect(() => {
-    // Send profiles to Chrome extension if available
+    // Save to localStorage for extension to read
+    localStorage.setItem('autofill_profiles', JSON.stringify(profiles));
+    
+    // Also try to send directly to extension if available
     if (typeof window !== 'undefined' && (window as any).chrome?.runtime?.sendMessage) {
       try {
+        // Try sending to extension (this will only work if externally_connectable is set)
         (window as any).chrome.runtime.sendMessage(
+          'EXTENSION_ID_PLACEHOLDER',
           { action: 'syncProfiles', profiles },
           (response: any) => {
-            // Ignore errors if extension is not installed
             if ((window as any).chrome.runtime.lastError) {
-              console.log('Extension not available');
+              // Extension not available, that's ok - profiles are in localStorage
             }
           }
         );
       } catch (error) {
-        // Extension not installed or not accessible
-        console.log('Extension sync not available');
+        // Extension messaging not available, profiles are still in localStorage
       }
     }
   }, [profiles]);

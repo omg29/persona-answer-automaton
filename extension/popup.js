@@ -126,11 +126,37 @@ function showToast(message, type = 'info') {
   }, 2000);
 }
 
-// Sync profiles from web app to extension storage
-async function syncFromWebApp() {
-  // Try to read from localStorage of the web app
-  // This would need the web app to be on the same domain or use messaging
-  // For now, we'll use chrome.storage.local as the source of truth
+// Sync profiles from web app
+async function syncProfiles() {
+  chrome.tabs.query({}, (tabs) => {
+    const managerTab = tabs.find(tab => 
+      tab.url && tab.url.includes('persona-answer-automaton.lovable.app')
+    );
+    
+    if (managerTab) {
+      chrome.scripting.executeScript({
+        target: { tabId: managerTab.id },
+        func: () => {
+          const stored = localStorage.getItem('autofill_profiles');
+          return stored ? JSON.parse(stored) : null;
+        }
+      }).then(results => {
+        if (results && results[0] && results[0].result) {
+          const webAppProfiles = results[0].result;
+          chrome.storage.local.set({ profiles: webAppProfiles }, () => {
+            loadProfiles();
+            showToast('Profiles synced successfully!');
+          });
+        } else {
+          showToast('No profiles found in manager', 'error');
+        }
+      }).catch(err => {
+        showToast('Please open the Profile Manager first', 'error');
+      });
+    } else {
+      showToast('Please open the Profile Manager first', 'error');
+    }
+  });
 }
 
 // Initialize popup
@@ -140,17 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fill button
   document.getElementById('fillButton').addEventListener('click', autoFillCurrentPage);
   
+  // Sync button
+  document.getElementById('syncButton').addEventListener('click', syncProfiles);
+  
   // Manager button
   document.getElementById('managerButton').addEventListener('click', openProfileManager);
-  
-  // Listen for profile updates from the web app
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'syncProfiles' && request.profiles) {
-      chrome.storage.local.set({ profiles: request.profiles }, () => {
-        loadProfiles();
-        sendResponse({ success: true });
-      });
-      return true;
-    }
-  });
 });
