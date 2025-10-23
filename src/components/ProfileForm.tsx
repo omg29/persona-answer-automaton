@@ -215,6 +215,17 @@ export const ProfileForm = ({ profile, onUpdate }: ProfileFormProps) => {
                 />
               </div>
             </div>
+            <div>
+              <Label htmlFor="country">Country</Label>
+              <Input
+                id="country"
+                value={profile.contact.country}
+                onChange={(e) => onUpdate({
+                  contact: { ...profile.contact, country: e.target.value }
+                })}
+                placeholder="United States"
+              />
+            </div>
           </CardContent>
         </Card>
       </TabsContent>

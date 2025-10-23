@@ -2,38 +2,54 @@
 
 console.log('AutoFill Profile Manager content script loaded');
 
-// Field mapping patterns
+// Field mapping patterns - comprehensive patterns to detect all form field types
 const fieldMappings = {
-  firstName: ['firstname', 'first_name', 'fname', 'given-name', 'givenname', 'forename'],
-  middleName: ['middlename', 'middle_name', 'mname', 'middle', 'additional-name'],
-  lastName: ['lastname', 'last_name', 'lname', 'surname', 'family-name', 'familyname'],
-  email: ['email', 'e-mail', 'mail', 'emailaddress', 'email_address', 'user_email'],
-  phone: ['phone', 'telephone', 'mobile', 'tel', 'phonenumber', 'phone_number', 'cellphone', 'cell'],
-  address: ['address', 'street', 'address1', 'address_1', 'street-address', 'streetaddress', 'addr'],
-  address2: ['address2', 'address_2', 'apt', 'apartment', 'suite', 'unit', 'address-line2'],
-  city: ['city', 'town', 'locality', 'address-level2'],
-  state: ['state', 'province', 'region', 'address-level1'],
-  zipCode: ['zip', 'zipcode', 'zip_code', 'postal', 'postalcode', 'postal_code', 'postcode'],
-  country: ['country', 'country_code', 'countrycode', 'country-name'],
-  dateOfBirth: ['dob', 'birthdate', 'birth_date', 'dateofbirth', 'date_of_birth', 'birthday', 'bday'],
-  gender: ['gender', 'sex'],
-  ssn: ['ssn', 'social', 'socialsecurity', 'social_security', 'tax_id'],
-  employer: ['employer', 'company', 'organization', 'work', 'companyname', 'company_name'],
-  jobTitle: ['jobtitle', 'job_title', 'title', 'position', 'occupation'],
-  relationshipStatus: ['marital', 'maritalstatus', 'marital_status', 'relationship', 'relationship_status'],
-  annualIncome: ['income', 'annual_income', 'annualincome', 'salary', 'yearly_income'],
+  firstName: ['firstname', 'first_name', 'fname', 'given-name', 'givenname', 'forename', 'first name', 'given name'],
+  middleName: ['middlename', 'middle_name', 'mname', 'middle', 'additional-name', 'middle name'],
+  lastName: ['lastname', 'last_name', 'lname', 'surname', 'family-name', 'familyname', 'last name', 'family name'],
+  email: ['email', 'e-mail', 'mail', 'emailaddress', 'email_address', 'user_email', 'e mail', 'email address'],
+  phone: ['phone', 'telephone', 'mobile', 'tel', 'phonenumber', 'phone_number', 'cellphone', 'cell', 'phone number', 'contact number'],
+  address: ['address', 'street', 'address1', 'address_1', 'street-address', 'streetaddress', 'addr', 'street address', 'address line'],
+  address2: ['address2', 'address_2', 'apt', 'apartment', 'suite', 'unit', 'address-line2', 'address line 2'],
+  city: ['city', 'town', 'locality', 'address-level2', 'municipality'],
+  state: ['state', 'province', 'region', 'address-level1', 'st'],
+  zipCode: ['zip', 'zipcode', 'zip_code', 'postal', 'postalcode', 'postal_code', 'postcode', 'zip code', 'postal code'],
+  country: ['country', 'country_code', 'countrycode', 'country-name', 'nation', 'nationality'],
+  dateOfBirth: ['dob', 'birthdate', 'birth_date', 'dateofbirth', 'date_of_birth', 'birthday', 'bday', 'birth date', 'date of birth'],
+  gender: ['gender', 'sex', 'male', 'female'],
+  ssn: ['ssn', 'social', 'socialsecurity', 'social_security', 'tax_id', 'social security', 'tax id'],
+  employer: ['employer', 'company', 'organization', 'work', 'companyname', 'company_name', 'company name', 'workplace'],
+  jobTitle: ['jobtitle', 'job_title', 'title', 'position', 'occupation', 'job title', 'job position'],
+  relationshipStatus: ['marital', 'maritalstatus', 'marital_status', 'relationship', 'relationship_status', 'marital status', 'relationship status', 'married', 'single'],
+  annualIncome: ['income', 'annual_income', 'annualincome', 'salary', 'yearly_income', 'annual income', 'yearly income', 'earnings'],
 };
 
 // Helper function to match field name/id/label to profile field
 function matchField(element) {
-  const name = (element.name || '').toLowerCase();
-  const id = (element.id || '').toLowerCase();
+  const name = (element.name || '').toLowerCase().replace(/[_-]/g, ' ');
+  const id = (element.id || '').toLowerCase().replace(/[_-]/g, ' ');
   const placeholder = (element.placeholder || '').toLowerCase();
   const label = getFieldLabel(element).toLowerCase();
   const autocomplete = (element.autocomplete || '').toLowerCase();
+  const ariaLabel = (element.getAttribute('aria-label') || '').toLowerCase();
+  const dataName = (element.getAttribute('data-name') || '').toLowerCase();
+  const className = (element.className || '').toLowerCase();
   
-  const searchText = `${name} ${id} ${placeholder} ${label} ${autocomplete}`;
+  // Combine all possible identifiers
+  const searchText = `${name} ${id} ${placeholder} ${label} ${autocomplete} ${ariaLabel} ${dataName} ${className}`;
   
+  // Try exact matches first for better accuracy
+  for (const [profileField, patterns] of Object.entries(fieldMappings)) {
+    for (const pattern of patterns) {
+      // Check for exact word boundaries to avoid false matches
+      const regex = new RegExp(`\\b${pattern}\\b`, 'i');
+      if (regex.test(searchText)) {
+        return profileField;
+      }
+    }
+  }
+  
+  // If no exact match, try partial matches
   for (const [profileField, patterns] of Object.entries(fieldMappings)) {
     for (const pattern of patterns) {
       if (searchText.includes(pattern)) {
@@ -73,63 +89,112 @@ function getFieldLabel(element) {
 
 // Fill a single input field
 function fillField(element, value, profileField) {
-  if (!value) return false;
+  if (!value && value !== 0 && value !== false) return false;
   
   const tagName = element.tagName.toLowerCase();
   const type = (element.type || '').toLowerCase();
   
-  // Handle different input types
-  if (tagName === 'input') {
-    if (type === 'radio') {
-      // For radio buttons, try to match the value
-      const valueStr = value.toString().toLowerCase();
-      const elementValue = (element.value || '').toLowerCase();
-      const elementLabel = getFieldLabel(element).toLowerCase();
-      
-      if (elementValue.includes(valueStr) || elementLabel.includes(valueStr) || valueStr.includes(elementValue)) {
-        element.checked = true;
+  try {
+    // Handle different input types
+    if (tagName === 'input') {
+      if (type === 'radio') {
+        // For radio buttons, try comprehensive matching
+        const valueStr = value.toString().toLowerCase().trim();
+        const elementValue = (element.value || '').toLowerCase().trim();
+        const elementLabel = getFieldLabel(element).toLowerCase().trim();
+        
+        // Try exact match first
+        if (elementValue === valueStr || elementLabel === valueStr) {
+          element.checked = true;
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+          element.dispatchEvent(new Event('click', { bubbles: true }));
+          return true;
+        }
+        
+        // Try partial matches
+        if (elementValue.includes(valueStr) || valueStr.includes(elementValue) ||
+            elementLabel.includes(valueStr) || valueStr.includes(elementLabel)) {
+          element.checked = true;
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+          element.dispatchEvent(new Event('click', { bubbles: true }));
+          return true;
+        }
+      } else if (type === 'checkbox') {
+        // For checkboxes, check if value is truthy or matches label
+        const valueStr = value.toString().toLowerCase().trim();
+        const elementLabel = getFieldLabel(element).toLowerCase().trim();
+        const shouldCheck = !!value || elementLabel.includes(valueStr) || valueStr.includes(elementLabel);
+        
+        if (element.checked !== shouldCheck) {
+          element.checked = shouldCheck;
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+          element.dispatchEvent(new Event('click', { bubbles: true }));
+        }
+        return true;
+      } else if (type === 'date' || type === 'datetime-local' || type === 'month' || type === 'week' || type === 'time') {
+        // Handle date/time fields
+        element.value = value;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      } else if (type === 'number' || type === 'range') {
+        // Handle numeric fields
+        element.value = value;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      } else if (type === 'email' || type === 'tel' || type === 'url' || type === 'text' || type === 'search' || !type) {
+        // Regular text-based inputs
+        element.value = value;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
         return true;
       }
-    } else if (type === 'checkbox') {
-      // For checkboxes, check if value is truthy
-      element.checked = !!value;
-      element.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    } else if (type === 'date') {
-      // Handle date fields
-      element.value = value;
-      element.dispatchEvent(new Event('input', { bubbles: true }));
-      element.dispatchEvent(new Event('change', { bubbles: true }));
-      return true;
-    } else {
-      // Regular text input
+    } else if (tagName === 'select') {
+      // Try comprehensive select option matching
+      const valueStr = value.toString().toLowerCase().trim();
+      const options = Array.from(element.options);
+      
+      // Try exact matches first
+      for (const option of options) {
+        const optionValue = (option.value || '').toLowerCase().trim();
+        const optionText = (option.text || '').toLowerCase().trim();
+        
+        if (optionValue === valueStr || optionText === valueStr) {
+          element.value = option.value;
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        }
+      }
+      
+      // Try partial matches
+      for (const option of options) {
+        const optionValue = (option.value || '').toLowerCase().trim();
+        const optionText = (option.text || '').toLowerCase().trim();
+        
+        if (optionValue.includes(valueStr) || optionText.includes(valueStr) ||
+            valueStr.includes(optionValue) || valueStr.includes(optionText)) {
+          element.value = option.value;
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        }
+      }
+    } else if (tagName === 'textarea') {
       element.value = value;
       element.dispatchEvent(new Event('input', { bubbles: true }));
       element.dispatchEvent(new Event('change', { bubbles: true }));
       return true;
     }
-  } else if (tagName === 'select') {
-    // Try to match select option
-    const valueStr = value.toString().toLowerCase();
-    const options = Array.from(element.options);
     
-    for (const option of options) {
-      const optionValue = (option.value || '').toLowerCase();
-      const optionText = (option.text || '').toLowerCase();
-      
-      if (optionValue === valueStr || optionText === valueStr || 
-          optionValue.includes(valueStr) || optionText.includes(valueStr)) {
-        element.value = option.value;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
-      }
+    // Handle contenteditable divs (modern form builders)
+    if (element.contentEditable === 'true' || element.getAttribute('contenteditable') === 'true') {
+      element.textContent = value;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
     }
-  } else if (tagName === 'textarea') {
-    element.value = value;
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
+  } catch (error) {
+    console.error('Error filling field:', error);
   }
   
   return false;
@@ -177,23 +242,54 @@ async function fillForm() {
     console.log('Filling form with profile:', profile.name);
     let fieldsFilledCount = 0;
     
-    // Find all form fields
-    const inputs = document.querySelectorAll('input, select, textarea');
+    // Find all form fields including contenteditable elements
+    const inputs = document.querySelectorAll('input, select, textarea, [contenteditable="true"]');
     
     inputs.forEach((element) => {
-      // Skip hidden, disabled, and readonly fields
-      if (element.offsetParent === null || element.disabled || element.readOnly) {
+      // Skip hidden and disabled fields (but allow readonly for some forms)
+      const isVisible = element.offsetParent !== null || element.offsetWidth > 0 || element.offsetHeight > 0;
+      if (!isVisible || element.disabled) {
         return;
       }
       
       const matchedField = matchField(element);
       if (matchedField) {
         const value = getProfileValue(profile, matchedField);
-        if (value) {
+        if (value !== undefined && value !== null) {
           const filled = fillField(element, value, matchedField);
           if (filled) {
             fieldsFilledCount++;
             console.log(`Filled ${matchedField} with value:`, value);
+          }
+        }
+      }
+    });
+    
+    // Special handling for radio button groups - ensure we process all radios in a group
+    const radioGroups = {};
+    document.querySelectorAll('input[type="radio"]').forEach((radio) => {
+      const name = radio.name;
+      if (name) {
+        if (!radioGroups[name]) radioGroups[name] = [];
+        radioGroups[name].push(radio);
+      }
+    });
+    
+    // Try to match and fill radio groups
+    Object.entries(radioGroups).forEach(([groupName, radios]) => {
+      if (radios.length === 0 || radios[0].checked) return; // Skip if already checked
+      
+      const matchedField = matchField(radios[0]);
+      if (matchedField) {
+        const value = getProfileValue(profile, matchedField);
+        if (value) {
+          for (const radio of radios) {
+            const filled = fillField(radio, value, matchedField);
+            if (filled) {
+              fieldsFilledCount++;
+              console.log(`Filled radio group ${groupName} (${matchedField}) with value:`, value);
+              break; // Only check one radio per group
+            }
           }
         }
       }
